@@ -1,0 +1,4 @@
+name: WinterStorm
+main: dev.newfag.mc_plugin.Application
+version: 0.1.0
+api-version: '1.21'
