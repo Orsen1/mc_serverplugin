@@ -30,7 +30,7 @@ public class NoRainVisuals implements Listener {
 
         // только обычный мир (Overworld)
         if (w.getEnvironment() == World.Environment.NORMAL) {
-           p.setPlayerWeather(WeatherType.CLEAR);
+           p.setPlayerWeather(WeatherType.DOWNFALL);
         } else {
             // в других измерениях возвращаем стандартную погоду/атмосферу
             p.resetPlayerWeather();

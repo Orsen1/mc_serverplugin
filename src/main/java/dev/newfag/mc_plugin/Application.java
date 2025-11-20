@@ -33,6 +33,8 @@ public class Application extends JavaPlugin {
 
         SnowAmbience ambience = new SnowAmbience(this);
         ambience.start();
+        
+        Bukkit.getPluginManager().registerEvents(new VegetationToSnow(), this);
         /*
         // 3) Если ProtocolLib установлен — включаем “подмену биомов для клиента”
         if (Bukkit.getPluginManager().isPluginEnabled("ProtocolLib")) {
