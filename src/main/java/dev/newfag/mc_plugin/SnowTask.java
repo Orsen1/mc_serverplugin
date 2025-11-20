@@ -30,11 +30,13 @@ public class SnowTask {
                 }
                 for (Player p : world.getPlayers()) {
                     // визуальные снежные частицы для ощущения снегопада
-                    world.spawnParticle(Particle.SNOWFLAKE, p.getLocation().clone().add(0, 2.0, 0),
-                            120, 12, 6, 12, 0.05);
-                    // реальные снежные слои и лёд
-                    sprinkleSnow(p);
-                    //freezeWater(p);
+                    if (world.getEnvironment() == World.Environment.NORMAL) {
+                        world.spawnParticle(Particle.SNOWFLAKE, p.getLocation().clone().add(0, 2.0, 0),
+                                120, 12, 6, 12, 0.05);
+                        // реальные снежные слои и лёд
+                        sprinkleSnow(p);
+                        //freezeWater(p);
+                    }
                 }
             }
         }, 20L, 20L); // каждую секунду
@@ -90,5 +92,5 @@ public class SnowTask {
             }
         }
     }
-    */
+     */
 }
