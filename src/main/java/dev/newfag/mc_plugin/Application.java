@@ -1,11 +1,14 @@
 package dev.newfag.mc_plugin;
 
+import Storm.StormController;
+import Storm.StormListener;
 import org.bukkit.*;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class Application extends JavaPlugin {
 
     private SnowTask snowTask;
+    private StormController stormController;
 
     @Override
     public void onEnable() {
@@ -35,6 +38,17 @@ public class Application extends JavaPlugin {
         ambience.start();
         
         Bukkit.getPluginManager().registerEvents(new VegetationToSnow(), this);
+        
+        
+        int stormDurationSeconds = 240; // например, 4 минуты. Поставь 0 или -1, если не хочешь авто-выключение.
+
+        stormController = new StormController(this, stormDurationSeconds);
+        // слушатель под будущие фичи (урон/мобы)
+        getServer().getPluginManager().registerEvents(new StormListener(stormController), this);
+
+        // для теста: сразу запускаем бурю при старте сервера
+        stormController.startStorm();
+
         /*
         // 3) Если ProtocolLib установлен — включаем “подмену биомов для клиента”
         if (Bukkit.getPluginManager().isPluginEnabled("ProtocolLib")) {
@@ -51,5 +65,11 @@ public class Application extends JavaPlugin {
         if (snowTask != null) {
             snowTask.stop();
         }
+        
+        if (stormController != null && stormController.isStormActive()) {
+            stormController.stopStorm();
+        }
+
+        getLogger().info("[WinterStorm] Plugin disabled.");
     }
 }
