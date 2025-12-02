@@ -4,10 +4,16 @@
  */
 package Storm;
 
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Monster;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
  *
@@ -15,10 +21,10 @@ import org.bukkit.event.player.PlayerMoveEvent;
  */
 public class StormListener implements Listener {
 
-    private final StormController storm;
+    private final StormController controller;
 
     public StormListener(StormController storm) {
-        this.storm = storm;
+        this.controller = storm;
     }
 
     /**
@@ -26,14 +32,15 @@ public class StormListener implements Listener {
      */
     @EventHandler
     public void onMobSpawn(CreatureSpawnEvent e) {
-        if (!storm.isStormActive()) return;
-
-        // пример поведения НА БУДУЩЕЕ: пока закомментировано
-        /*
+        if (!controller.isStormActive()) {
+            return;
+        }
         LivingEntity mob = e.getEntity();
-        mob.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 20 * 60, 0)); // Сила I на минуту
-        mob.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20 * 60, 0));    // Скорость I на минуту
-         */
+        if (!(mob instanceof Monster)) {
+            return;
+        }
+        mob.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 20 * 60 * 7, 1)); // Сила 2 
+        mob.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20 * 60 * 7, 1));    // Скорость 2
     }
 
     /**
@@ -41,7 +48,9 @@ public class StormListener implements Listener {
      */
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent e) {
-        if (!storm.isStormActive()) return;
+        if (!controller.isStormActive()) {
+            return;
+        }
 
         // тут позже можно проверять "под открытым небом" и наносить урон
         // (сейчас НИЧЕГО не делаем, чтобы не мешать тестам)
@@ -53,5 +62,21 @@ public class StormListener implements Listener {
             p.damage(0.5); // пол сердца
         }
          */
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+
+        Player p = event.getPlayer();
+        // ВСЕГДА, при любом заходе, на всякий случай чистим эффекты шторма
+        controller.removeFog(p);
+
+        if (p.getName().equals("penis")) {
+            p.sendTitle(
+                    "§f❄ 💀ПЕДОСЛАВ💀",
+                    "§7   💀ЗАШЕЛ💀",
+                    10, 60, 10
+            );
+        }
     }
 }

@@ -9,6 +9,9 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
@@ -18,7 +21,9 @@ import org.bukkit.potion.PotionEffectType;
  *
  * @author 0rsen
  */
-public class StormController  {
+public class StormController {
+
+    private int timeCheckTaskId = -1;
 
     private final Plugin plugin;
     private final int stormDurationSeconds; // сколько секунд длится буря (можно менять извне)
@@ -40,13 +45,15 @@ public class StormController  {
      * Запускаем бурю.
      */
     public void startStorm() {
-        if (stormActive) return;
+        if (stormActive) {
+            return;
+        }
         stormActive = true;
 
         plugin.getLogger().info("[WinterStorm] ❄ Storm started!");
 
         // поднимаем лимит накопления снега
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/gamerule snowAccumulationHeight 20");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "gamerule snowAccumulationHeight 8");
 
         // визуал + звук каждые 10 тиков (0.5 секунды)
         tickTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::stormTick, 1L, 5L);
@@ -65,7 +72,9 @@ public class StormController  {
      * Останавливаем бурю.
      */
     public void stopStorm() {
-        if (!stormActive) return;
+        if (!stormActive) {
+            return;
+        }
         stormActive = false;
         plugin.getLogger().info("[WinterStorm] 🌤 Storm ended!");
 
@@ -79,7 +88,11 @@ public class StormController  {
         }
 
         // возвращаем стандартный лимит (можешь поменять значение на своё)
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/gamerule snowAccumulationHeight 3");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "gamerule snowAccumulationHeight 2");
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            removeFog(p);
+        }
 
         // можно убрать туман, но Blindness сам спадёт через 1–2 тика
     }
@@ -88,48 +101,67 @@ public class StormController  {
      * Один "тик" бури — вызывается раз в ... тиков.
      */
     private void stormTick() {
-        if (!stormActive) return;
-        for (Player p: Bukkit.getOnlinePlayers()) {
+        if (!stormActive) {
+            return;
+        }
+
+        buffMobsDuringStorm();
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
             World w = p.getWorld();
-            if (w.getEnvironment() != World.Environment.NORMAL) continue;
-            
+            if (w.getEnvironment() != World.Environment.NORMAL) {
+                continue;
+            }
+            spawnFog(p, 1000);
+            spawnStormSnow(p, 5500);
             switch (PlayerData.getEnvironmentCode(p)) {
-            //nothing
+                //nothing
                 case 1:
                     System.out.println("1");
+                    if (hasFog(p)) {
+                        removeFog(p);
+                    }
                     break;
                 case 2:
                     System.out.println("2");
+                    if (hasFog(p)) {
+                        removeFog(p);
+                    }
                     playWindSound(p, 0.75f, 0.25f);
                     break;
                 case 3:
                     System.out.println("3");
-                    spawnStormSnow(p, 500);
-                    applyFog(p, 3);
+                    if (!hasFog(p)) {
+                        applyFog(p, 3);
+                    }
                     playWindSound(p, 1.25f, 0.5f);
                     break;
                 case 4:
                     System.out.println("4");
-                    spawnStormSnow(p, 2000);
-                    applyFog(p, 1);
+                    if (!hasFog(p)) {
+                        applyFog(p, 1);
+                    }
                     playWindSound(p, 2f, 0.75f);
                     break;
                 case 5:
                     System.out.println("5");
-                    spawnStormSnow(p, 2000);
-                    applyFog(p, 2);
+                    if (!hasFog(p)) {
+                        applyFog(p, 2);
+                    }
                     playWindSound(p, 2.5f, 0.75f);
                     break;
                 case 6:
                     System.out.println("6");
-                    spawnStormSnow(p, 4000);
-                    applyFog(p, 2);
+                    if (!hasFog(p)) {
+                        applyFog(p, 2);
+                    }
                     playWindSound(p, 2.5f, 0.75f);
                     break;
                 default:
                     System.out.println("7");
-                    spawnStormSnow(p, 4000);
-                    applyFog(p, 1);
+                    if (!hasFog(p)) {
+                        applyFog(p, 1);
+                    }
                     playWindSound(p, 2.5f, 0.75f);
                     break;
             }
@@ -139,17 +171,56 @@ public class StormController  {
     /**
      * Усиленный снег: много частиц, быстрее падают.
      */
-    private void spawnStormSnow(Player p, int i) {
-        // точка чуть над игроком
-        var loc = p.getLocation().clone().add(0, 2.5, 0);
+    private void spawnStormSnow(Player p, int flakes) {
+        World world = p.getWorld();
+        Location pl = p.getLocation();
 
-        p.spawnParticle(
-                Particle.SNOWFLAKE,
-                loc,
-                5000,      // количество частиц
-                5, 5, 5, // разброс по XYZ
-                0.8      // "скорость" / сила движения
-        );
+        int radius = 10; // радиус вокруг игрока, где рисуем снег
+
+        int px = pl.getBlockX();
+        int py = pl.getBlockY();
+        int pz = pl.getBlockZ();
+        int maxY = world.getMaxHeight();
+
+        for (int i = 0; i < flakes; i++) {
+
+            // случайная точка по горизонтали вокруг игрока
+            int x = px + (int) Math.round((Math.random() * 2 - 1) * radius);
+            int z = pz + (int) Math.round((Math.random() * 2 - 1) * radius);
+
+            // 1) ПРОВЕРКА: есть ли над ИГРОКОМ в этой колонке хоть один блок?
+            boolean blocked = false;
+            for (int y = py; y <= maxY; y++) {
+                if (!world.getBlockAt(x, y, z).isPassable()) {
+                    blocked = true;  // найден блок → колонка под крышей/скалой
+                    break;
+                }
+            }
+
+            // если над этой точкой что-то есть — снег не спавним
+            if (blocked) {
+                continue;
+            }
+
+            // 2) ВЫБИРАЕМ высоту спавна снежинки в свободной колонке
+            double minY = py + 2;                         // не прям у головы
+            double maxSpawnY = Math.min(py + 10, maxY - 1); // максимум +10 над игроком
+            if (minY >= maxSpawnY) {
+                continue; // мало места, пропускаем
+            }
+
+            double y = minY + Math.random() * (maxSpawnY - minY);
+
+            Location loc = new Location(world, x + 0.5, y, z + 0.5);
+
+            world.spawnParticle(
+                    Particle.SNOWFLAKE,
+                    loc,
+                    1, // одна снежинка
+                    0, 0, 0,
+                    0.6
+            );
+        }
     }
 
     /**
@@ -158,12 +229,32 @@ public class StormController  {
     private void applyFog(Player p, int fogLevel) {
         p.addPotionEffect(new PotionEffect(
                 PotionEffectType.BLINDNESS,
-                stormDurationSeconds,
-                fogLevel,    // уровень 1 → очень плотный туман
+                99999999,
+                fogLevel, // уровень 1 → очень плотный туман
                 false, // ambient
                 false, // particles
-                false  // icon
+                false // icon
         ));
+    }
+
+    public void removeFog(Player p) {
+        p.removePotionEffect(PotionEffectType.BLINDNESS);
+    }
+
+    private boolean hasFog(Player p) {
+        return p.hasPotionEffect(PotionEffectType.BLINDNESS);
+    }
+
+    private void spawnFog(Player p, int strength) {
+        World world = p.getWorld();
+        Location pl = p.getLocation();
+
+        // strength = сколько частиц за тик
+        world.spawnParticle(
+                Particle.WHITE_ASH, // или WHITE_ASH, или SPORE_BLOSSOM_AIR
+                strength, // сколько частиц
+                5, 1.5, 5 // offset по X/Y/Z (радиус тумана)
+        );
     }
 
     /**
@@ -173,8 +264,85 @@ public class StormController  {
         p.playSound(
                 p.getLocation(),
                 Sound.AMBIENT_SOUL_SAND_VALLEY_ADDITIONS,
-                loudLevel,  // громкость
-                ton  // тон
+                loudLevel, // громкость
+                ton // тон
         );
+    }
+
+    private void buffMobsDuringStorm() {
+        for (World w : Bukkit.getWorlds()) {
+            if (w.getEnvironment() != World.Environment.NORMAL) {
+                continue;
+            }
+
+            for (Entity entity : w.getLivingEntities()) {
+
+                if (!(entity instanceof LivingEntity)) {
+                    continue;
+                }
+                LivingEntity le = (LivingEntity) entity;
+                if (le instanceof Player || !(le instanceof Monster)) {
+                    return;
+                }
+
+                le.addPotionEffect(new PotionEffect(
+                        PotionEffectType.SPEED,
+                        stormDurationSeconds,
+                        2, // уровень 3
+                        true, // ambient
+                        false, // без частиц
+                        false // без иконки
+                ));
+
+                // Сила (INCREASE_DAMAGE = Strength)
+                le.addPotionEffect(new PotionEffect(
+                        PotionEffectType.STRENGTH,
+                        stormDurationSeconds,
+                        2,
+                        true,
+                        false,
+                        false
+                ));
+            }
+        }
+    }
+
+    // -------------------------
+    //  НОЧНОЙ АВТО-ЗАПУСК БУРИ
+    // -------------------------
+    public void startTimeWatcher() {
+        timeCheckTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+
+            World world = Bukkit.getWorlds().get(0);
+            long time = world.getTime();  // 0..24000
+
+            // ночь 13000+
+            if (time >= 13000 && !stormActive) {
+
+                // шанс 30%
+                if (Math.random() < 0.30) {
+                    startStorm();
+                }
+            }
+
+            if (stormActive) {
+
+                if (time < 13000) {
+
+                    // сон → ночь перескочила → time 0-200
+                    if (time < 200) {
+                        stopStorm();
+                        return;
+                    }
+
+                    // середина дня — 6000
+                    if (time >= 6000) {
+                        stopStorm();
+                        return;
+                    }
+                }
+            }
+
+        }, 20L, 100L);
     }
 }

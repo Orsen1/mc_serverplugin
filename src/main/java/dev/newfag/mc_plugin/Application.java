@@ -40,14 +40,13 @@ public class Application extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new VegetationToSnow(), this);
         
         
-        int stormDurationSeconds = 240; // например, 4 минуты. Поставь 0 или -1, если не хочешь авто-выключение.
+        int stormDurationSeconds = 0; // например, 4 минуты. Поставь 0 или -1, если не хочешь авто-выключение.
 
         stormController = new StormController(this, stormDurationSeconds);
         // слушатель под будущие фичи (урон/мобы)
         getServer().getPluginManager().registerEvents(new StormListener(stormController), this);
-
-        // для теста: сразу запускаем бурю при старте сервера
-        stormController.startStorm();
+        stormController.startTimeWatcher();
+        
 
         /*
         // 3) Если ProtocolLib установлен — включаем “подмену биомов для клиента”
