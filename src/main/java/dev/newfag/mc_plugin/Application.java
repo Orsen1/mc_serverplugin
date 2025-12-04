@@ -26,9 +26,9 @@ public class Application extends JavaPlugin {
         snowTask = new SnowTask(this);
         snowTask.start();
 
-        SnowRegenQueue regenQueue = new SnowRegenQueue(this);
-        regenQueue.start();
-        Bukkit.getPluginManager().registerEvents(new SnowRegen(this, regenQueue), this);
+        //SnowRegenQueue regenQueue = new SnowRegenQueue(this);
+        //regenQueue.start();
+        //Bukkit.getPluginManager().registerEvents(new SnowRegen(this, regenQueue), this);
 
         NoRainVisuals noRain = new NoRainVisuals(this);
         Bukkit.getPluginManager().registerEvents(noRain, this);

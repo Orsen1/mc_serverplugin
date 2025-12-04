@@ -4,6 +4,7 @@
  */
 package Storm;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
@@ -72,11 +73,13 @@ public class StormListener implements Listener {
         controller.removeFog(p);
 
         if (p.getName().equals("penis")) {
-            p.sendTitle(
-                    "§f❄ 💀ПЕДОСЛАВ💀",
-                    "§7   💀ЗАШЕЛ💀",
-                    10, 60, 10
-            );
+            for (Player all : Bukkit.getOnlinePlayers()) {
+                all.sendTitle(
+                        "§f 💀ПЕДОСЛАВ💀",
+                       "§7  💀ЗАШЕЛ💀",
+                        10, 60, 10
+                );
+            }
         }
     }
 }

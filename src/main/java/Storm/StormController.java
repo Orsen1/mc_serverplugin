@@ -23,7 +23,11 @@ import org.bukkit.potion.PotionEffectType;
  */
 public class StormController {
 
+    boolean isNight = false;
+
     private int timeCheckTaskId = -1;
+    
+    private int fogCheckCounter;
 
     private final Plugin plugin;
     private final int stormDurationSeconds; // сколько секунд длится буря (можно менять извне)
@@ -35,6 +39,7 @@ public class StormController {
     public StormController(Plugin plugin, int stormDurationSeconds) {
         this.plugin = plugin;
         this.stormDurationSeconds = stormDurationSeconds;
+        fogCheckCounter = 0;
     }
 
     public boolean isStormActive() {
@@ -53,7 +58,7 @@ public class StormController {
         plugin.getLogger().info("[WinterStorm] ❄ Storm started!");
 
         // поднимаем лимит накопления снега
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "gamerule snowAccumulationHeight 8");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "gamerule snowAccumulationHeight 5");
 
         // визуал + звук каждые 10 тиков (0.5 секунды)
         tickTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::stormTick, 1L, 5L);
@@ -104,62 +109,58 @@ public class StormController {
         if (!stormActive) {
             return;
         }
-
-        buffMobsDuringStorm();
+        
+        fogCheckCounter++;
+        boolean dofogUpdate = fogCheckCounter >= 15;
+        if(dofogUpdate){
+            fogCheckCounter = 0;
+        }
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             World w = p.getWorld();
             if (w.getEnvironment() != World.Environment.NORMAL) {
                 continue;
             }
-            spawnFog(p, 1000);
-            spawnStormSnow(p, 5500);
+            //spawnFog(p, 1000);
+            spawnStormSnow(p, 1500);
             switch (PlayerData.getEnvironmentCode(p)) {
-                //nothing
                 case 1:
-                    System.out.println("1");
-                    if (hasFog(p)) {
+                    if (hasFog(p) && dofogUpdate) {
                         removeFog(p);
                     }
                     break;
                 case 2:
-                    System.out.println("2");
-                    if (hasFog(p)) {
+                    if (hasFog(p) && dofogUpdate) {
                         removeFog(p);
                     }
                     playWindSound(p, 0.75f, 0.25f);
                     break;
                 case 3:
-                    System.out.println("3");
-                    if (!hasFog(p)) {
+                    if (!hasFog(p) && dofogUpdate) {
                         applyFog(p, 3);
                     }
                     playWindSound(p, 1.25f, 0.5f);
                     break;
                 case 4:
-                    System.out.println("4");
-                    if (!hasFog(p)) {
+                    if (!hasFog(p) && dofogUpdate) {
                         applyFog(p, 1);
                     }
                     playWindSound(p, 2f, 0.75f);
                     break;
                 case 5:
-                    System.out.println("5");
-                    if (!hasFog(p)) {
+                    if (!hasFog(p) && dofogUpdate) {
                         applyFog(p, 2);
                     }
                     playWindSound(p, 2.5f, 0.75f);
                     break;
                 case 6:
-                    System.out.println("6");
-                    if (!hasFog(p)) {
+                    if (!hasFog(p) && dofogUpdate) {
                         applyFog(p, 2);
                     }
                     playWindSound(p, 2.5f, 0.75f);
                     break;
                 default:
-                    System.out.println("7");
-                    if (!hasFog(p)) {
+                    if (!hasFog(p) && dofogUpdate) {
                         applyFog(p, 1);
                     }
                     playWindSound(p, 2.5f, 0.75f);
@@ -175,7 +176,7 @@ public class StormController {
         World world = p.getWorld();
         Location pl = p.getLocation();
 
-        int radius = 10; // радиус вокруг игрока, где рисуем снег
+        int radius = 5; // радиус вокруг игрока, где рисуем снег
 
         int px = pl.getBlockX();
         int py = pl.getBlockY();
@@ -190,7 +191,7 @@ public class StormController {
 
             // 1) ПРОВЕРКА: есть ли над ИГРОКОМ в этой колонке хоть один блок?
             boolean blocked = false;
-            for (int y = py; y <= maxY; y++) {
+            for (int y = py+2; y <= maxY; y++) {
                 if (!world.getBlockAt(x, y, z).isPassable()) {
                     blocked = true;  // найден блок → колонка под крышей/скалой
                     break;
@@ -311,38 +312,34 @@ public class StormController {
     //  НОЧНОЙ АВТО-ЗАПУСК БУРИ
     // -------------------------
     public void startTimeWatcher() {
+
         timeCheckTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
 
             World world = Bukkit.getWorlds().get(0);
             long time = world.getTime();  // 0..24000
 
             // ночь 13000+
-            if (time >= 13000 && !stormActive) {
+            if (time >= 12000 && !stormActive && !isNight) {
 
                 // шанс 30%
-                if (Math.random() < 0.30) {
+                double i = Math.random();
+                System.out.println(i);
+                if (i < 0.30) {
                     startStorm();
                 }
+                isNight = true;
             }
 
+            if (time < 12000 && isNight) {
+                isNight = false;
+            }
             if (stormActive) {
 
-                if (time < 13000) {
-
-                    // сон → ночь перескочила → time 0-200
-                    if (time < 200) {
-                        stopStorm();
-                        return;
-                    }
-
-                    // середина дня — 6000
-                    if (time >= 6000) {
-                        stopStorm();
-                        return;
-                    }
+                if (time < 12000) {
+                    stopStorm();
                 }
             }
 
-        }, 20L, 100L);
+        }, 20L, 5L);
     }
 }
